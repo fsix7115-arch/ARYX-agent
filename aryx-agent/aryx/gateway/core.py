@@ -443,7 +443,7 @@ class GatewayCore:
             return OutgoingMessage(
                 text="This approval expired after 5 minutes — nothing was run. Please send the task again."
             )
-      approved = (msg.callback_data or "").strip().lower() == "approve"
+        approved = (msg.callback_data or "").strip().lower() == "approve"
         result = pending.continuation.resolve(approved)
         if result.kind == "approval" and result.approval is not None:
             self.pending[identity_id] = PendingApproval(identity_id, pending.session_id, result.continuation)
