@@ -40,10 +40,10 @@ dev = [
 ]
 
 [project.scripts]
-aryx = "aryx.cli:main"
+aryx = "aryx.cli:run_cli"
 
 [project.entry-points."pipx.run"]
-aryx = "aryx.cli:main"
+aryx = "aryx.cli:run_cli"
 
 [tool.setuptools.packages.find]
 where = ["."]
