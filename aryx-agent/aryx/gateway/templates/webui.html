@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARYx — Web UI</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; background: #0d1117; color: #e6edf3; font-family: system-ui, -apple-system, sans-serif; }
+  header { padding: 12px 16px; border-bottom: 1px solid #21262d; font-weight: 700; }
+  header span { color: #8b949e; font-weight: 400; font-size: 13px; }
+  #chat { max-width: 760px; margin: 0 auto; padding: 16px; padding-bottom: 120px; }
+  .msg { margin: 10px 0; padding: 10px 14px; border-radius: 10px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; }
+  .user { background: #1f6feb; margin-left: 20%; }
+  .agent { background: #161b22; border: 1px solid #30363d; margin-right: 10%; }
+  .sys { color: #8b949e; font-size: 13px; text-align: center; }
+  #composer { position: fixed; bottom: 0; left: 0; right: 0; background: #0d1117; border-top: 1px solid #21262d; padding: 12px; }
+  #composer-inner { max-width: 760px; margin: 0 auto; display: flex; gap: 8px; }
+  #text { flex: 1; background: #161b22; border: 1px solid #30363d; color: #e6edf3; border-radius: 8px; padding: 10px; font-size: 15px; }
+  button { background: #238636; color: #fff; border: 0; border-radius: 8px; padding: 10px 18px; font-size: 15px; cursor: pointer; }
+  button.secondary { background: #30363d; }
+  button:disabled { opacity: 0.5; }
+  #approval { max-width: 760px; margin: 0 auto 8px; display: none; gap: 8px; }
+</style>
+</head>
+<body>
+<header>ARYx <span>terminal agent, in your browser — same memory as the CLI</span></header>
+<div id="chat"></div>
+<div id="composer">
+  <div id="approval">
+    <button id="btn-approve">Approve</button>
+    <button id="btn-reject" class="secondary">Reject</button>
+  </div>
+  <div id="composer-inner">
+    <input id="text" placeholder="Ask ARYx anything…  (try /help)" autocomplete="off">
+    <button id="send">Send</button>
+  </div>
+</div>
+<script>
+  const params = new URLSearchParams(location.search);
+  let token = params.get('token') || '';
+  const chat = document.getElementById('chat');
+  const textEl = document.getElementById('text');
+  const approvalBox = document.getElementById('approval');
+  function addMsg(cls, text) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + cls;
+    div.textContent = text;
+    chat.appendChild(div);
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+  function showApproval(show) { approvalBox.style.display = show ? 'flex' : 'none'; }
+  async function api(path, body) {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-ARYx-Token': token },
+      body: JSON.stringify(Object.assign({ token }, body)),
+    });
+    return res.json();
+  }
+  async function send() {
+    const text = textEl.value.trim();
+    if (!text) return;
+    if (!token) { addMsg('sys', 'No token in URL. Open the link from `aryx gateway start webui` (it includes ?token=...).'); return; }
+    addMsg('user', text);
+    textEl.value = '';
+    document.getElementById('send').disabled = true;
+    try {
+      const data = await api('/api/chat', { text });
+      if (data.error) { addMsg('sys', 'Error: ' + data.error); return; }
+      if (data.reply) addMsg('agent', data.reply);
+      showApproval(!!(data.buttons && data.buttons.length));
+    } catch (e) {
+      addMsg('sys', 'Could not reach the agent. Is the gateway still running?');
+    } finally {
+      document.getElementById('send').disabled = false;
+      textEl.focus();
+    }
+  }
+  async function decide(approved) {
+    showApproval(false);
+    const data = await api('/api/approve', { approved });
+    if (data.reply) addMsg('agent', data.reply);
+  }
+  document.getElementById('send').onclick = send;
+  document.getElementById('btn-approve').onclick = () => decide(true);
+  document.getElementById('btn-reject').onclick = () => decide(false);
+  textEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+  addMsg('sys', 'Connected to ARYx. Commands: /help /whoami /link CODE /resume /new /stop');
+  textEl.focus();
+</script>
+</body>
+</html>
