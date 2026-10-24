@@ -589,6 +589,20 @@ def cli_uninstall() -> None:
         print("✓ ARYx uninstalled.")
 
 
+@app.command(name="gateway")
+def cli_gateway(
+    action: str = typer.Argument("help", help="setup, start, stop, status, reload, link, add, remove, logs, test, help, whoami"),
+    target: Optional[str] = typer.Argument(None, help="Channel for start/add/remove/test (telegram, whatsapp, discord, slack, webui)"),
+) -> None:
+    """Control ARYx from Telegram, WhatsApp, Discord, Slack or a browser (Section 16)."""
+    # Lazy import: the gateway stack is only loaded when this command runs.
+    from aryx.gateway.cli import run_gateway_command
+
+    code = run_gateway_command(action, target)
+    if code != 0:
+        sys.exit(code)
+
+
 def run_cli() -> None:
     """Entry point dispatching either via Typer or built-in argparse."""
     if HAS_REAL_TYPER:
@@ -623,6 +637,11 @@ def run_cli() -> None:
         subparsers.add_parser("update", help="Update ARYx")
         subparsers.add_parser("uninstall", help="Uninstall ARYx")
 
+        # gateway (Section 16)
+        gw_p = subparsers.add_parser("gateway", help="Control ARYx from Telegram, WhatsApp, Discord, Slack, Web UI")
+        gw_p.add_argument("action", nargs="?", default="help", help="setup, start, stop, status, reload, link, add, remove, logs, test, help, whoami")
+        gw_p.add_argument("target", nargs="?", default=None, help="Channel (telegram, whatsapp, discord, slack, webui)")
+
         args = parser.parse_args()
 
         if args.banner:
@@ -644,6 +663,12 @@ def run_cli() -> None:
             cli_update()
         elif args.command == "uninstall":
             cli_uninstall()
+        elif args.command == "gateway":
+            from aryx.gateway.cli import run_gateway_command
+
+            code = run_gateway_command(args.action, args.target)
+            if code != 0:
+                sys.exit(code)
         else:
             main(yolo=args.yolo, verbose=args.verbose, banner=False, version=False)
 
