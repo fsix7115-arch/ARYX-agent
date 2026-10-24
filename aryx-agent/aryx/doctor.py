@@ -1,6 +1,7 @@
 """
 ARYx AGENT - Doctor Command
-Self-diagnostics and auto-repair running 9 functional probes in order.
+Self-diagnostics and auto-repair running 15 functional probes in order
+(9 core checks + 6 gateway checks from Section 16.11).
 """
 
 from __future__ import annotations
@@ -272,8 +273,154 @@ def check_disk_space() -> DoctorCheck:
         return DoctorCheck("Disk space", "WARN", f"Could not determine disk usage: {str(e)}")
 
 
+def check_gateway_config() -> DoctorCheck:
+    """CHECK 10: gateway.toml parses (Section 16.11)."""
+    try:
+        from aryx.gateway.config import GATEWAY_FILE, validate_gateway_config
+
+        err = validate_gateway_config()
+        if err:
+            return DoctorCheck("gateway.toml syntax", "FAIL", f"Parse error: {err}",
+                               fix="Print the line number of the error, fix it, then re-run doctor.")
+        if not GATEWAY_FILE.exists():
+            return DoctorCheck("gateway.toml syntax", "PASS", "No gateway.toml yet (all channels disabled)")
+        return DoctorCheck("gateway.toml syntax", "PASS", "Valid TOML")
+    except Exception as e:
+        return DoctorCheck("gateway.toml syntax", "FAIL", f"Could not read gateway config: {e}")
+
+
+def check_gateway_credentials() -> DoctorCheck:
+    """CHECK 11: every ENABLED channel has its credentials present."""
+    try:
+        from aryx.gateway.config import CHANNELS, channel_config, enabled_channels, load_gateway_config
+
+        config = load_gateway_config()
+        enabled = enabled_channels(config)
+        if not enabled:
+            return DoctorCheck("gateway channel credentials", "PASS", "No channels enabled (nothing to validate)")
+        missing = []
+        for channel in enabled:
+            cfg = channel_config(config, channel)
+            if channel == "telegram" and not cfg.get("bot_token"):
+                missing.append("telegram bot_token")
+            elif channel == "webui" and not cfg.get("auth_token"):
+                missing.append("webui auth_token")
+            elif channel == "whatsapp":
+                needed = (["account_sid", "auth_token", "from_number"] if cfg.get("provider") == "twilio"
+                          else ["access_token", "phone_number_id"])
+                missing += [f"whatsapp {k}" for k in needed if not cfg.get(k)]
+            elif channel == "discord" and not cfg.get("bot_token"):
+                missing.append("discord bot_token")
+            elif channel == "slack" and not (cfg.get("bot_token") and cfg.get("app_token")):
+                missing.append("slack bot_token/app_token")
+        if missing:
+            return DoctorCheck("gateway channel credentials", "FAIL", f"Missing: {', '.join(missing)}",
+                               fix="Re-run: aryx gateway add <channel>")
+        return DoctorCheck("gateway channel credentials", "PASS", f"Credentials present for: {', '.join(enabled)}")
+    except Exception as e:
+        return DoctorCheck("gateway channel credentials", "FAIL", f"Could not check: {e}")
+
+
+def check_gateway_webhooks() -> DoctorCheck:
+    """CHECK 12: webhook-based channels are reachable (if any)."""
+    try:
+        from aryx.gateway.config import channel_config, load_gateway_config
+
+        config = load_gateway_config()
+        # Only WhatsApp runs webhook-mode in this build; Telegram uses
+        # long-polling, Discord uses its gateway, Slack uses Socket Mode,
+        # and Web UI is local — none of those need a public URL.
+        wa = channel_config(config, "whatsapp")
+        url = wa.get("webhook_url", "") if wa.get("enabled") else ""
+        if not url:
+            return DoctorCheck("gateway webhooks", "PASS", "No webhook-based channels (long-polling/socket mode need no public URL)")
+        try:
+            client = HttpClient(timeout=5)
+            resp = client.get(url)
+            if resp.status_code < 500:
+                return DoctorCheck("gateway webhooks", "PASS", f"Webhook reachable: {url}")
+            return DoctorCheck("gateway webhooks", "FAIL", f"Webhook returned HTTP {resp.status_code}",
+                               fix="Your tunnel is down. Run: aryx gateway start")
+        except Exception:
+            return DoctorCheck("gateway webhooks", "FAIL", f"Webhook unreachable: {url}",
+                               fix="Your tunnel is down. Run: aryx gateway start")
+    except Exception as e:
+        return DoctorCheck("gateway webhooks", "FAIL", f"Could not check: {e}")
+
+
+def check_gateway_allowlist() -> DoctorCheck:
+    """CHECK 13: allowlist non-empty for each enabled channel (WARN)."""
+    try:
+        from aryx.gateway.config import channel_config, enabled_channels, load_gateway_config
+
+        config = load_gateway_config()
+        empty = []
+        for channel in enabled_channels(config):
+            cfg = channel_config(config, channel)
+            if channel == "telegram" and not (cfg.get("allowed_user_ids") or cfg.get("allowed_usernames")):
+                empty.append("telegram")
+            elif channel == "whatsapp" and not cfg.get("allowed_numbers"):
+                empty.append("whatsapp")
+            elif channel == "discord" and not cfg.get("allowed_guilds"):
+                empty.append("discord")
+            elif channel == "slack" and not (cfg.get("allowed_workspaces") or cfg.get("allowed_users")):
+                empty.append("slack")
+            elif channel == "webui" and not cfg.get("auth_token"):
+                empty.append("webui (no auth token)")
+        if empty:
+            return DoctorCheck("gateway allowlists", "WARN", f"Empty allowlist for: {', '.join(empty)}",
+                               fix="Anyone can control your bot! Add user IDs to gateway.toml, then run: aryx gateway reload")
+        return DoctorCheck("gateway allowlists", "PASS", "All enabled channels have allowlists")
+    except Exception as e:
+        return DoctorCheck("gateway allowlists", "FAIL", f"Could not check: {e}")
+
+
+def check_gateway_log_leaks() -> DoctorCheck:
+    """CHECK 14: no API keys visible in gateway.log (leak scan)."""
+    import re
+
+    try:
+        from aryx.gateway.config import GATEWAY_LOG
+
+        if not GATEWAY_LOG.exists():
+            return DoctorCheck("gateway log leak scan", "PASS", "No gateway.log yet")
+        text = GATEWAY_LOG.read_text(encoding="utf-8", errors="ignore")
+        patterns = [r"\b\d{6,}:[A-Za-z0-9_-]{20,}\b", r"sk-ant-[A-Za-z0-9_-]{10,}",
+                    r"AIza[A-Za-z0-9_-]{10,}", r"gsk_[A-Za-z0-9]{10,}", r"sk-[A-Za-z0-9]{10,}"]
+        for pattern in patterns:
+            if re.search(pattern, text):
+                return DoctorCheck("gateway log leak scan", "FAIL", "Possible secret found in gateway.log",
+                                   fix="Rotate your key immediately. Purge logs.")
+        return DoctorCheck("gateway log leak scan", "PASS", "No secrets found in gateway.log")
+    except Exception as e:
+        return DoctorCheck("gateway log leak scan", "FAIL", f"Could not scan: {e}")
+
+
+def check_gateway_running() -> DoctorCheck:
+    """CHECK 15: at least one channel running (WARN if none)."""
+    import json as _json
+
+    try:
+        from aryx.gateway.config import GATEWAY_STATE_FILE
+
+        if GATEWAY_STATE_FILE.exists():
+            state = _json.loads(GATEWAY_STATE_FILE.read_text(encoding="utf-8"))
+            pid = state.get("pid")
+            try:
+                os.kill(int(pid), 0)
+                channels = ", ".join(state.get("channels", []))
+                return DoctorCheck("gateway running", "PASS", f"Gateway running (PID {pid}): {channels}")
+            except (OSError, ValueError, TypeError):
+                pass
+        return DoctorCheck("gateway running", "WARN", "No gateway currently running",
+                           fix="Run: aryx gateway start")
+    except Exception as e:
+        return DoctorCheck("gateway running", "WARN", f"Could not determine gateway state: {e}",
+                           fix="Run: aryx gateway start")
+
+
 def run_doctor(fix: bool = False, as_json: bool = False) -> int:
-    """Run all 9 checks and optionally perform auto-repair."""
+    """Run all 15 checks and optionally perform auto-repair."""
     checks = [
         check_python_version(),
         check_aryx_on_path(),
@@ -284,6 +431,12 @@ def run_doctor(fix: bool = False, as_json: bool = False) -> int:
         check_sqlite_memory(),
         check_skills_dir(),
         check_disk_space(),
+        check_gateway_config(),
+        check_gateway_credentials(),
+        check_gateway_webhooks(),
+        check_gateway_allowlist(),
+        check_gateway_log_leaks(),
+        check_gateway_running(),
     ]
 
     if fix:
@@ -304,6 +457,12 @@ def run_doctor(fix: bool = False, as_json: bool = False) -> int:
             check_sqlite_memory(),
             check_skills_dir(),
             check_disk_space(),
+            check_gateway_config(),
+            check_gateway_credentials(),
+            check_gateway_webhooks(),
+            check_gateway_allowlist(),
+            check_gateway_log_leaks(),
+            check_gateway_running(),
         ]
 
     passed = sum(1 for c in checks if c.status == "PASS")
