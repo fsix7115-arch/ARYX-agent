@@ -325,7 +325,7 @@ def run_doctor(fix: bool = False, as_json: bool = False) -> int:
         elif c.status == "WARN":
             print(f"  \033[1;33m[WARN]\033[0m {c.name} — {c.details}")
             if c.fix:
-                print(f"         \033[dimmFix: {c.fix}\033[0m")
+                print(f"         \033[2mFix: {c.fix}\033[0m")
         else:
             print(f"  \033[1;31m[FAIL]\033[0m {c.name} — {c.details}")
             if c.fix:
