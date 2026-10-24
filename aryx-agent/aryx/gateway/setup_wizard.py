@@ -158,7 +158,12 @@ def add_channel(config: Dict[str, Any], channel: str) -> Dict[str, Any]:
 
 def run_setup_wizard() -> int:
     """Step 1: pick channels. Step 2: each channel's flow. Step 3: next steps."""
-    config = load_gateway_config()
+    try:
+        config = load_gateway_config()
+    except Exception as e:  # noqa: BLE001 - clean CLI error, never a traceback
+        print(f"gateway.toml has an error: {e}")
+        print("Fix it, then run `aryx gateway setup` again. (Check: aryx doctor)")
+        return 1
     print("\n=== ARYx gateway setup ===")
     print("Which channels do you want to enable? (comma-separated numbers)")
     for i, channel in enumerate(CHANNELS, 1):
