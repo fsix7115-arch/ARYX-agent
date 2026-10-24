@@ -425,10 +425,17 @@ async function startServer() {
       res.sendFile(path.resolve(distPath, 'index.html'));
     });
   }
-
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`ARYx AGENT Full-Stack Server running on http://0.0.0.0:${PORT}`);
+  // Secure default: localhost only. This server can use a server-side
+  // API key (GEMINI_API_KEY) and has no auth layer, so binding it to
+  // 0.0.0.0 would let anyone on the network spend that key. Set
+  // HOST=0.0.0.0 explicitly only if you really want LAN access.
+  const HOST = process.env.HOST || '127.0.0.1';
+  if (HOST === '0.0.0.0') {
+    console.log('WARNING: binding to 0.0.0.0 exposes this server (and any server-side API key) to your whole network.');
+  }
+  app.listen(PORT, HOST, () => {
+    console.log(`ARYx AGENT Full-Stack Server running on http://${HOST}:${PORT}`);
   });
-}
+  }
 
 startServer();
