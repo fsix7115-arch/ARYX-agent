@@ -49,7 +49,7 @@ from aryx.memory import (
     save_message,
     search_history,
 )
-from aryx.providers import get_provider
+from aryx.providers import get_provider, get_provider_for_session
 from aryx.tools import READ_ONLY_TOOLS, TOOL_DEFINITIONS, WRITE_TOOLS, dispatch_tool, revert_last_snapshots
 from aryx.ui import (
     print_banner,
@@ -380,7 +380,9 @@ def start_chat_session(yolo: bool = False, verbose: bool = False) -> None:
         turn_count = 0
 
         try:
-            provider = get_provider(active_provider, config)
+            # Section 17.4: when smart routing is on, the router picks the
+            # best provider for this message and falls back on failure.
+            provider = get_provider_for_session(config, text=user_input)
         except Exception as e:
             print(f"\n  ✗ Error loading provider '{active_provider}': {str(e)}")
             print("    Run `aryx doctor` for diagnostics.\n")
@@ -533,11 +535,15 @@ def cli_config(
             return
 
         cfg = load_config()
-        # Redact keys before showing
+        # Redact keys before showing (custom providers are a list, not a dict)
         display_cfg = dict(cfg)
         for p, data in display_cfg.get("providers", {}).items():
             if isinstance(data, dict) and "api_key" in data and data["api_key"]:
                 data["api_key"] = redact_key(data["api_key"])
+            elif isinstance(data, list):
+                for entry in data:
+                    if isinstance(entry, dict) and entry.get("api_key"):
+                        entry["api_key"] = redact_key(entry["api_key"])
 
         import pprint
         print("\n--- ~/.aryx/config.toml (Redacted) ---")
@@ -603,6 +609,111 @@ def cli_gateway(
         sys.exit(code)
 
 
+@app.command(name="provider")
+def cli_provider(
+    action: str = typer.Argument("list", help="add, list, test, remove, default"),
+    target: Optional[str] = typer.Argument(None, help="Provider name for test/remove/default"),
+) -> None:
+    """Manage providers, including custom endpoints (Section 17)."""
+    from aryx.config import load_config
+    from aryx.providers.wizard import (
+        print_provider_list,
+        remove_provider,
+        run_provider_add_wizard,
+        set_default_provider,
+        test_provider,
+    )
+
+    if action == "add":
+        code = run_provider_add_wizard()
+    elif action == "list":
+        print_provider_list(load_config())
+        code = 0
+    elif action == "test" and target:
+        code = test_provider(load_config(), target)
+    elif action == "remove" and target:
+        code = remove_provider(target)
+    elif action == "default" and target:
+        code = set_default_provider(target)
+    else:
+        print("Usage: aryx provider add | list | test <name> | remove <name> | default <name>")
+        code = 1
+    if code != 0:
+        sys.exit(code)
+
+
+@app.command(name="web")
+def cli_web(
+    port: int = typer.Option(8765, "--port", help="Port to listen on"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="Don't auto-open the browser"),
+    public: bool = typer.Option(False, "--public", help="Expose via cloudflared tunnel"),
+    auth: str = typer.Option("token", "--auth", help="token, password, or none"),
+    allow_no_auth: bool = typer.Option(False, "--allow-no-auth", help="Allow --auth none (localhost only)"),
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind host (keep 127.0.0.1 unless you know why)"),
+) -> None:
+    """Launch the professional web UI (Section 18)."""
+    from aryx.web.server import run_web_server
+
+    code = run_web_server(port=port, no_browser=no_browser, public=public,
+                          auth_mode=auth, allow_no_auth=allow_no_auth, host=host)
+    if code != 0:
+        sys.exit(code)
+
+
+@app.command(name="browser", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def cli_browser(ctx: "typer.Context") -> None:
+    """Secure AI-controlled browsing with encrypted profiles (Section 19).
+
+    Extra args (including --flags) pass through verbatim via ctx.args,
+    so `aryx browser run recipe ... k=v` and friends keep working.
+    """
+    from aryx.browser.cli import run_browser_command
+
+    code = run_browser_command(list(ctx.args or []))
+    if code != 0:
+        sys.exit(code)
+
+
+@app.command(name="schedule", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
+def cli_schedule(ctx: "typer.Context") -> None:
+    """Cron + natural-language scheduled tasks (Section 20).
+
+    Extra args pass through verbatim via ctx.args, so
+    `aryx schedule add --cron ... --prompt ... --channel ...` works.
+    """
+    from aryx.scheduler.cli import run_schedule_command
+
+    code = run_schedule_command(list(ctx.args or []))
+    if code != 0:
+        sys.exit(code)
+
+
+@app.command(name="daemon")
+def cli_daemon(
+    action: str = typer.Argument("status", help="start, stop, status, logs, install"),
+) -> None:
+    """Background scheduler daemon (Section 20.6)."""
+    from aryx.scheduler.daemon import (
+        daemon_logs,
+        daemon_status,
+        install_daemon_unit,
+        start_daemon,
+        stop_daemon,
+    )
+
+    actions = {
+        "start": start_daemon, "stop": stop_daemon, "status": daemon_status,
+        "logs": daemon_logs, "install": install_daemon_unit,
+    }
+    fn = actions.get(action)
+    if fn is None:
+        print("Usage: aryx daemon start | stop | status | logs | install")
+        sys.exit(1)
+    code = fn()
+    if code != 0:
+        sys.exit(code)
+
+
 def run_cli() -> None:
     """Entry point dispatching either via Typer or built-in argparse."""
     if HAS_REAL_TYPER:
@@ -642,6 +753,30 @@ def run_cli() -> None:
         gw_p.add_argument("action", nargs="?", default="help", help="setup, start, stop, status, reload, link, add, remove, logs, test, help, whoami")
         gw_p.add_argument("target", nargs="?", default=None, help="Channel (telegram, whatsapp, discord, slack, webui)")
 
+        # v2 commands (Sections 17-20)
+        pv_p = subparsers.add_parser("provider", help="Manage providers, incl. custom endpoints")
+        pv_p.add_argument("action", nargs="?", default="list", help="add, list, test, remove, default")
+        pv_p.add_argument("target", nargs="?", default=None, help="Provider name")
+
+        web_p = subparsers.add_parser("web", help="Launch the professional web UI")
+        web_p.add_argument("--port", type=int, default=8765)
+        web_p.add_argument("--no-browser", action="store_true")
+        web_p.add_argument("--public", action="store_true")
+        web_p.add_argument("--auth", default="token", help="token, password, or none")
+        web_p.add_argument("--allow-no-auth", action="store_true")
+        web_p.add_argument("--host", default="127.0.0.1")
+
+        # REMAINDER (not "*"): --flags like --cron must reach the subcommand
+        # verbatim instead of being rejected as unknown argparse options.
+        br_p = subparsers.add_parser("browser", help="Secure AI-controlled browsing")
+        br_p.add_argument("args", nargs=argparse.REMAINDER, default=[])
+
+        sc_p = subparsers.add_parser("schedule", help="Cron + natural-language scheduled tasks")
+        sc_p.add_argument("args", nargs=argparse.REMAINDER, default=[])
+
+        dm_p = subparsers.add_parser("daemon", help="Background scheduler daemon")
+        dm_p.add_argument("action", nargs="?", default="status", help="start, stop, status, logs, install")
+
         args = parser.parse_args()
 
         if args.banner:
@@ -669,6 +804,25 @@ def run_cli() -> None:
             code = run_gateway_command(args.action, args.target)
             if code != 0:
                 sys.exit(code)
+        elif args.command == "provider":
+            cli_provider(action=args.action, target=args.target)
+        elif args.command == "web":
+            cli_web(port=args.port, no_browser=args.no_browser, public=args.public,
+                    auth=args.auth, allow_no_auth=args.allow_no_auth, host=args.host)
+        elif args.command == "browser":
+            from aryx.browser.cli import run_browser_command
+
+            code = run_browser_command(list(args.args or []))
+            if code != 0:
+                sys.exit(code)
+        elif args.command == "schedule":
+            from aryx.scheduler.cli import run_schedule_command
+
+            code = run_schedule_command(list(args.args or []))
+            if code != 0:
+                sys.exit(code)
+        elif args.command == "daemon":
+            cli_daemon(action=args.action)
         else:
             main(yolo=args.yolo, verbose=args.verbose, banner=False, version=False)
 

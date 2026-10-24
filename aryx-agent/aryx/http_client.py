@@ -27,6 +27,23 @@ class SimpleResponse:
         return json.loads(self.text)
 
 
+
+def _make_httpx_client(timeout: float, follow_redirects: bool):
+    """Build an httpx client that survives malformed proxy env vars.
+
+    Some environments set NO_PROXY entries (e.g. bare "[::1]") that
+    httpx cannot parse as URL patterns, so plain httpx.Client() raises
+    InvalidURL at construction. That used to break every provider call
+    — including local ones (Ollama/vLLM) that must never touch a proxy.
+    Fall back to trust_env=False, which also guarantees localhost
+    requests go direct.
+    """
+    try:
+        return httpx.Client(timeout=timeout, follow_redirects=follow_redirects)
+    except Exception:
+        return httpx.Client(timeout=timeout, follow_redirects=follow_redirects, trust_env=False)
+
+
 class HttpClient:
     """Synchronous HTTP client with timeout and automatic json serialization."""
 
@@ -43,7 +60,7 @@ class HttpClient:
     def get(self, url: str, headers: Optional[Dict[str, str]] = None) -> SimpleResponse:
         if httpx:
             try:
-                with httpx.Client(timeout=self.timeout, follow_redirects=self.follow_redirects) as client:
+                with _make_httpx_client(self.timeout, self.follow_redirects) as client:
                     r = client.get(url, headers=headers)
                     return SimpleResponse(r.status_code, r.text, dict(r.headers))
             except Exception as e:
@@ -75,7 +92,7 @@ class HttpClient:
 
         if httpx:
             try:
-                with httpx.Client(timeout=self.timeout, follow_redirects=self.follow_redirects) as client:
+                with _make_httpx_client(self.timeout, self.follow_redirects) as client:
                     r = client.post(url, json=json, headers=headers)
                     return SimpleResponse(r.status_code, r.text, dict(r.headers))
             except Exception as e:

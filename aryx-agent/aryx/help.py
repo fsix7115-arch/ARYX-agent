@@ -177,6 +177,59 @@ mirrored into memory, so /history covers every channel.
 """
 
 
+
+HELP_WEB_TEXT = """
+================================================================================
+                    ARYx AGENT WEB UI (Section 18)
+================================================================================
+  aryx web                     Launch at http://localhost:8765 (token auth)
+  aryx web --port 3000         Custom port
+  aryx web --no-browser        Don't auto-open the browser
+  aryx web --public            Public URL via cloudflared tunnel (needs token)
+  aryx web --auth password     Password login instead of token
+  aryx web --auth none --allow-no-auth   No auth (localhost only, loud warning)
+
+  The UI has a sessions sidebar (Today/Yesterday/Earlier), a model
+  selector in the header, file upload/download, approval buttons,
+  search (Cmd+K), export (Markdown/JSON), and voice input via your
+  browser. Install it with: pip install "aryx-agent[web]"
+  Full guide: docs/WEB_UI.md
+"""
+
+HELP_BROWSER_TEXT = """
+================================================================================
+                    ARYx AGENT BROWSER (Section 19)
+================================================================================
+  aryx browser setup           Headed login window + encrypted profile
+  aryx browser profile list    Show profiles, logged-in sites, encryption
+  aryx browser profile allow <profile> <domain>   Enable a domain
+  aryx browser run read <profile> <url>           Read a page as the agent
+  aryx browser run recipe <profile> <site> <action>
+
+  The agent NEVER sees your passwords: you log in manually once, ARYx
+  reuses the saved cookies. Profiles are AES-256 encrypted at rest.
+  Banking, crypto, and admin sites are hardcoded-blocked. Sending,
+  posting, buying, and following always need approval.
+  Full guide: docs/BROWSER.md
+"""
+
+HELP_SCHEDULE_TEXT = """
+================================================================================
+                    ARYx AGENT SCHEDULER (Section 20)
+================================================================================
+  aryx schedule add            Interactive wizard (task, when, channel)
+  aryx schedule add --cron "0 9 * * *" --prompt "..." --channel telegram
+  aryx schedule list | pause | resume | run | logs | edit | remove <id>
+  aryx schedule export --to backup.toml | import backup.toml
+  aryx daemon start | stop | status | logs | install
+
+  Natural language works too: "every morning at 9am", "weekdays at
+  6pm", "every 2 hours". Scheduled writes need per-schedule
+  allow_writes; dangerous bash commands stay blocked in every mode.
+  From any channel: /schedule list | pause | resume | run | logs <id>
+  Full guide: docs/SCHEDULER.md
+"""
+
 def show_help(topic: str = "general") -> None:
     """Print the appropriate help guide."""
     topic = topic.lower().strip()
@@ -190,6 +243,12 @@ def show_help(topic: str = "general") -> None:
         print(HELP_SKILLS_TEXT)
     elif topic in ("gateway", "telegram", "whatsapp", "discord", "slack", "webui"):
         print(HELP_GATEWAY_TEXT)
+    elif topic in ("web", "webui-app", "ui"):
+        print(HELP_WEB_TEXT)
+    elif topic in ("browser", "browsing"):
+        print(HELP_BROWSER_TEXT)
+    elif topic in ("schedule", "scheduler", "cron", "daemon"):
+        print(HELP_SCHEDULE_TEXT)
     else:
         render_table(
             "ARYx AGENT CLI Commands",
@@ -206,6 +265,11 @@ def show_help(topic: str = "general") -> None:
                 ["aryx help tools", "List built-in tools and safety modes", "aryx help tools"],
                 ["aryx help skills", "Explain self-improving skill system", "aryx help skills"],
                 ["aryx gateway", "Control ARYx from Telegram, WhatsApp, Discord, Slack, Web UI", "aryx gateway setup"],
+                ["aryx provider", "Add/list/test custom API providers (any endpoint, any auth)", "aryx provider add"],
+                ["aryx web", "Professional web UI at http://localhost:8765", "aryx web"],
+                ["aryx browser", "Secure AI browsing with encrypted profiles", "aryx browser setup"],
+                ["aryx schedule", "Cron + natural-language scheduled tasks", "aryx schedule add"],
+                ["aryx daemon", "Background scheduler (runs when ARYx is closed)", "aryx daemon start"],
                 ["aryx --version", "Print version", "aryx --version"],
             ],
         )

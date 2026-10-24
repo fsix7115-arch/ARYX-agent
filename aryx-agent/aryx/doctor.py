@@ -419,8 +419,78 @@ def check_gateway_running() -> DoctorCheck:
                            fix="Run: aryx gateway start")
 
 
+def check_custom_providers() -> DoctorCheck:
+    """CHECK 16: custom provider entries parse and resolve keys (WARN if broken)."""
+    try:
+        from aryx.config import get_custom_providers, resolve_custom_key
+
+        entries = get_custom_providers(load_config())
+        if not entries:
+            return DoctorCheck("custom providers", "PASS", "No custom providers configured")
+        broken = []
+        for e in entries:
+            name = str(e.get("name", ""))
+            if not e.get("base_url"):
+                broken.append(f"{name}: missing base_url")
+            elif e.get("format", "openai") not in ("openai", "anthropic", "gemini", "raw"):
+                broken.append(f"{name}: unknown format '{e.get('format')}'")
+        if broken:
+            return DoctorCheck("custom providers", "WARN", "; ".join(broken),
+                               fix="Fix the entry in ~/.aryx/config.toml or run: aryx provider remove <name>")
+        return DoctorCheck("custom providers", "PASS", f"{len(entries)} custom provider(s) configured")
+    except Exception as e:
+        return DoctorCheck("custom providers", "WARN", f"Could not check custom providers: {e}")
+
+
+def check_web_deps() -> DoctorCheck:
+    """CHECK 17: web extra installed for `aryx web` (WARN if missing — optional)."""
+    try:
+        import fastapi  # noqa: F401
+        import uvicorn  # noqa: F401
+
+        return DoctorCheck("web UI deps", "PASS", "fastapi + uvicorn installed (aryx web ready)")
+    except ImportError:
+        return DoctorCheck("web UI deps", "WARN", "fastapi/uvicorn not installed — `aryx web` will ask for them",
+                           fix="Run: pip install \"aryx-agent[web]\"")
+
+
+def check_scheduler() -> DoctorCheck:
+    """CHECK 18: schedules file parses, all crons valid (WARN if broken)."""
+    try:
+        from aryx.scheduler.engine import load_schedules
+        from aryx.scheduler.parser import validate_cron
+
+        rows = load_schedules()
+        bad = [str(s.get("id")) for s in rows if not validate_cron(str(s.get("cron", "")))]
+        if bad:
+            return DoctorCheck("scheduler", "WARN", f"Invalid cron in schedules: {', '.join(bad)}",
+                               fix="Fix with: aryx schedule edit <id>")
+        return DoctorCheck("scheduler", "PASS", f"{len(rows)} schedule(s), all crons valid")
+    except Exception as e:
+        return DoctorCheck("scheduler", "WARN", f"Could not check schedules: {e}")
+
+
+def check_browser_profiles() -> DoctorCheck:
+    """CHECK 19: browser profiles dir readable; Playwright optional (WARN if missing)."""
+    try:
+        from aryx.browser.manager import list_profiles
+
+        rows = list_profiles()
+        try:
+            import playwright  # noqa: F401
+
+            extra = "playwright installed"
+        except ImportError:
+            extra = "playwright not installed (browser tools need the browser extra)"
+        return DoctorCheck("browser profiles", "PASS" if rows else "WARN",
+                           f"{len(rows)} profile(s); {extra}",
+                           fix="Run: pip install \"aryx-agent[browser]\"" if "not installed" in extra else None)
+    except Exception as e:
+        return DoctorCheck("browser profiles", "WARN", f"Could not check browser profiles: {e}")
+
+
 def run_doctor(fix: bool = False, as_json: bool = False) -> int:
-    """Run all 15 checks and optionally perform auto-repair."""
+    """Run all 19 checks and optionally perform auto-repair."""
     checks = [
         check_python_version(),
         check_aryx_on_path(),
@@ -437,6 +507,10 @@ def run_doctor(fix: bool = False, as_json: bool = False) -> int:
         check_gateway_allowlist(),
         check_gateway_log_leaks(),
         check_gateway_running(),
+        check_custom_providers(),
+        check_web_deps(),
+        check_scheduler(),
+        check_browser_profiles(),
     ]
 
     if fix:
@@ -463,6 +537,10 @@ def run_doctor(fix: bool = False, as_json: bool = False) -> int:
             check_gateway_allowlist(),
             check_gateway_log_leaks(),
             check_gateway_running(),
+            check_custom_providers(),
+            check_web_deps(),
+            check_scheduler(),
+            check_browser_profiles(),
         ]
 
     passed = sum(1 for c in checks if c.status == "PASS")
