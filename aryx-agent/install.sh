@@ -118,7 +118,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if command -v pipx >/dev/null 2>&1; then
     if pipx list | grep -q "aryx-agent"; then
         echo "Already installed. Updating ARYx AGENT..."
-        pipx install --force "$SCRIPT_DIR"
+        pipx upgrade aryx-agent || pipx install --force "$SCRIPT_DIR"
     else
         echo "Installing ARYx AGENT with pipx..."
         pipx install "$SCRIPT_DIR"
@@ -160,15 +160,30 @@ if [ "$PATH_NEEDS_UPDATE" = true ]; then
     fi
 
     if [ -n "$SHELL_RC" ]; then
-        echo "Adding PATH export to ${SHELL_RC}..."
-        echo "" >> "$SHELL_RC"
-        echo "# ARYx AGENT PATH" >> "$SHELL_RC"
-        echo "$EXPORT_CMD" >> "$SHELL_RC"
-        echo -e "${GREEN}✓${NC} Appended to ${SHELL_RC}"
+        # Never modify user files without asking first.
+        printf "Add the PATH export to %s? [Y/n] " "$SHELL_RC"
+        if IFS= read -r reply; then
+            case "$reply" in
+                [nN]*)
+                    echo "Skipped. Add it manually later with:"
+                    echo "  ${CYAN}${EXPORT_CMD}${NC}"
+                    ;;
+                *)
+                    echo "Adding PATH export to ${SHELL_RC}..."
+                    echo "" >> "$SHELL_RC"
+                    echo "# ARYx AGENT PATH" >> "$SHELL_RC"
+                    echo "$EXPORT_CMD" >> "$SHELL_RC"
+                    echo -e "${GREEN}✓${NC} Appended to ${SHELL_RC}"
+                    ;;
+            esac
+        else
+            echo "Skipped (non-interactive shell). Add it manually with:"
+            echo "  ${CYAN}${EXPORT_CMD}${NC}"
+        fi
+    else
+        echo "For this current session, please run:"
+        echo "  ${CYAN}${EXPORT_CMD}${NC}"
     fi
-
-    echo "For this current session, please run:"
-    echo "  ${CYAN}${EXPORT_CMD}${NC}"
 fi
 
 # ------------------------------------------------------------------------------
