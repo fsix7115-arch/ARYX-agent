@@ -12,3 +12,10 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+
+# Secrets & local credentials (never commit these)
+*.pem
+*.key
+*.p12
+gateway.toml
+config.toml
