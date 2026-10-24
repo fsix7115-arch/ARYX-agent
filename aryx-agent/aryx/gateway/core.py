@@ -436,7 +436,14 @@ class GatewayCore:
         pending = self.pending.pop(identity_id, None)
         if pending is None:
             return OutgoingMessage(text="Nothing is waiting for approval right now.")
-        approved = (msg.callback_data or "").strip().lower() == "approve"
+        # Approvals expire after 5 minutes (spec 16.9): a stale tap must
+        # never execute a write. The entry is already popped, so an
+        # expired approval cannot be retried either.
+        if time.time() - pending.created_at > 300:
+            return OutgoingMessage(
+                text="This approval expired after 5 minutes — nothing was run. Please send the task again."
+            )
+      approved = (msg.callback_data or "").strip().lower() == "approve"
         result = pending.continuation.resolve(approved)
         if result.kind == "approval" and result.approval is not None:
             self.pending[identity_id] = PendingApproval(identity_id, pending.session_id, result.continuation)
