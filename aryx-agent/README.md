@@ -66,6 +66,32 @@ Security default is deny: only allow-listed users get replies, and
 messaging channels are forced into safe approval mode with native
 Approve/Reject buttons. Full guide: [docs/GATEWAY.md](docs/GATEWAY.md).
 
+## What's new in v2 (0.2.0)
+
+**Any API provider, no code changes** — OpenRouter, Together, Azure,
+local vLLM, your company's gateway. `aryx provider add` walks you
+through it, keys can live in env vars or `~/.aryx/secrets/`, and smart
+routing picks the best provider per task with automatic fallback.
+Guide: [docs/CUSTOM_PROVIDERS.md](docs/CUSTOM_PROVIDERS.md).
+
+**Professional web app** — `aryx web` opens a ChatGPT-style UI at
+`http://localhost:8765` (token auth, sessions sidebar, model selector,
+file uploads, approval buttons, PWA install). Needs
+`pip install 'aryx-agent[web]'`. Guide: [docs/WEB_UI.md](docs/WEB_UI.md).
+
+**Secure AI browsing** — `aryx browser setup` opens a headed Chromium
+window where *you* log in once; the agent reuses the encrypted session
+for YouTube, LinkedIn, Gmail, Reddit and more. Banking/crypto/admin
+sites are hardcoded-blocked; sends and posts always need approval.
+Needs `pip install 'aryx-agent[browser]'` + `playwright install chromium`.
+Guide: [docs/BROWSER.md](docs/BROWSER.md).
+
+**Scheduler** — `aryx schedule add` understands "every morning at 9am"
+as well as cron, delivers to Telegram or a file, and runs in the
+background via `aryx daemon start`. Scheduled writes need explicit
+per-schedule permission; dangerous commands stay blocked everywhere.
+Guide: [docs/SCHEDULER.md](docs/SCHEDULER.md).
+
 ---
 
 ## Product Promise

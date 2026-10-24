@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "aryx-agent"
-version = "0.1.0"
+version = "0.2.0"
 description = "Zero-friction, self-healing, multi-provider terminal AI agent"
 readme = "README.md"
 authors = [{ name = "ARYx Open Source Team" }]
@@ -33,7 +33,7 @@ dependencies = [
 ]
 
 [tool.setuptools.package-data]
-aryx = ["gateway/templates/*.html"]
+aryx = ["gateway/templates/*.html", "web/static/*"]
 
 [project.optional-dependencies]
 dev = [
@@ -49,6 +49,17 @@ discord = [
 slack = [
     "slack-bolt>=1.0.0",
     "slack-sdk>=3.0.0",
+]
+# v2 extras (Sections 18-19). The scheduler (Section 20) is stdlib-only
+# and needs no extra; custom providers (Section 17) need no extra either.
+web = [
+    "fastapi>=0.110.0",
+    "uvicorn>=0.29.0",
+    "python-multipart>=0.0.9",  # required by FastAPI for file uploads
+]
+browser = [
+    "playwright>=1.40.0",
+    "cryptography>=42.0.0",
 ]
 
 [project.scripts]
