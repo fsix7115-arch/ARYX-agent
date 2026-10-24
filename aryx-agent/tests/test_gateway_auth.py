@@ -133,6 +133,20 @@ def test_core_approval_pause_and_resume(tmp_path, monkeypatch):
     assert done is not None and done.text == "approved and done"
 
 
+def test_core_approval_expires_after_five_minutes(tmp_path, monkeypatch):
+    import time as _time
+    
+    monkeypatch.setattr("aryx.memory.save_message", lambda *a, **k: None)
+    core = _core(tmp_path, FakeRunner(), telegram={"allowed_user_ids": [111]})
+    reply = core.handle_message(_msg(user_id="111", text="please write"))
+    assert reply is not None and reply.approval is not None
+    identity_id = next(iter(core.pending))
+    core.pending[identity_id].created_at = _time.time() - 301
+    done = core.handle_message(_msg(user_id="111", callback_data="approve"))
+    assert done is not None and "expired" in done.text
+    assert done.text != "approved and done"  # The tap must NOT execute.
+
+
 def test_core_slash_commands(tmp_path, monkeypatch):
     monkeypatch.setattr("aryx.memory.save_message", lambda *a, **k: None)
     core = _core(tmp_path, FakeRunner(), telegram={"allowed_user_ids": [111]})
