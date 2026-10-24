@@ -18,13 +18,33 @@ Your terminal AI agent. One command to install. Any API key.
 ## Quickstart (30 seconds)
 
 ```bash
-git clone https://github.com/aryx-agent/aryx-agent
-cd aryx-agent
+git clone https://github.com/fsix7115-arch/ARYX-agent
+cd ARYX-agent/aryx-agent
 ./install.sh
 aryx
 ```
 
 Paste your API key when asked. That's it. ARYx auto-detects the provider from the key prefix, validates it with a tiny 5-token probe, and drops you straight into the chat.
+
+---
+
+## See it in action
+
+Real run of this build — `aryx doctor`, `aryx --help`, `aryx --banner`,
+and the 30-second first-run setup (the Ollama path needs no API key):
+
+![ARYx AGENT demo](docs/demo.gif)
+
+Screenshots:
+
+![aryx doctor](docs/screenshots/doctor.png)
+![aryx --help](docs/screenshots/help.png)
+![aryx --banner](docs/screenshots/banner.png)
+![First-run setup](docs/screenshots/setup.png)
+
+Note: the doctor screenshot was taken in a sandbox without external network
+access, so the network check fails there — on a normal machine it passes.
+Each failure carries its exact fix, which is the point of `aryx doctor`.
 
 ---
 
