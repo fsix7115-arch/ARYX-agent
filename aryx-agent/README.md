@@ -48,6 +48,26 @@ Each failure carries its exact fix, which is the point of `aryx doctor`.
 
 ---
 
+## Gateway: control ARYx from anywhere
+
+The same agent brain answers on Telegram, WhatsApp, Discord, Slack,
+or a browser Web UI — with memory and skills shared across channels.
+Start a task on Telegram, continue it on the terminal.
+
+```bash
+aryx gateway setup        # interactive wizard (<5 min per channel)
+aryx gateway start        # start all enabled channels
+aryx gateway link         # 10-minute code, then /link CODE on your channel
+```
+
+Telegram (Bot API) and the Web UI need no extra install. Discord and
+Slack need `pip install 'aryx-agent[discord]'` / `'aryx-agent[slack]'`.
+Security default is deny: only allow-listed users get replies, and
+messaging channels are forced into safe approval mode with native
+Approve/Reject buttons. Full guide: [docs/GATEWAY.md](docs/GATEWAY.md).
+
+---
+
 ## Product Promise
 
 1. **ONE-COMMAND INSTALL** — `./install.sh` handles OS detection (macOS, Linux, WSL), Python 3.10+ verification, isolated `pipx` installation, and PATH configuration.
