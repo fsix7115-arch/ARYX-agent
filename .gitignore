@@ -6,3 +6,9 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Python (aryx-agent)
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
