@@ -71,8 +71,21 @@ Docs: docs/GATEWAY.md
 """
 
 
+def _load_cli_config() -> Dict[str, Any]:
+    # A broken gateway.toml must fail with ONE clean line, never a
+    # traceback: this is a CLI entry point, and the user needs the
+    # file/line error, not a stack trace. Every direct
+    # load_gateway_config() call in this module goes through here.
+    try:
+        return load_gateway_config()
+    except Exception as e:  # noqa: BLE001 - surfaced as a clean CLI error
+        print(f"gateway.toml has an error: {e}")
+        print("Fix it, then retry. (Check: aryx doctor)")
+        raise SystemExit(1)
+
+
 def _build_core() -> GatewayCore:
-    return GatewayCore(config=load_gateway_config(), agent_runner=AgentRunner())
+    return GatewayCore(config=_load_cli_config(), agent_runner=AgentRunner())
 
 
 def _read_state() -> Optional[Dict[str, Any]]:
@@ -109,7 +122,7 @@ def _state_alive(state: Optional[Dict[str, Any]]) -> bool:
 
 # -- individual actions ----------------------------------------------------
 def _cmd_status() -> int:
-    config = load_gateway_config()
+    config = _load_cli_config()
     state = _read_state()
     running = _state_alive(state)
     running_channels = state.get("channels", []) if running else []
@@ -140,6 +153,16 @@ def _cmd_link() -> int:
 
 
 def _cmd_reload() -> int:
+    # Validate BEFORE building the core: reload's whole job is to
+    # report a broken file cleanly, and building a core on a broken
+    # file is exactly what used to traceback.
+    from aryx.gateway.config import validate_gateway_config
+
+    err = validate_gateway_config()
+    if err:
+        print(f"gateway.toml has an error: {err}")
+        print("Fix it, then run `aryx gateway reload` again.")
+        return 1
     core = _build_core()
     err = core.reload_config()
     if err:
@@ -166,7 +189,7 @@ def _cmd_test(channel: str) -> int:
     if channel not in CHANNELS:
         print(f"Unknown channel: {channel}. Choose from: {', '.join(CHANNELS)}")
         return 1
-    config = load_gateway_config()
+    config = _load_cli_config()
     cfg = channel_config(config, channel)
     if channel == "telegram":
         token = cfg.get("bot_token", "")
@@ -288,7 +311,7 @@ def _start_adapters(core: GatewayCore, wanted: List[str]) -> List[str]:
 
 
 def _cmd_start(target: Optional[str]) -> int:
-    config = load_gateway_config()
+    config = _load_cli_config()
     if target:
         wanted = [target.lower()]
         if wanted[0] not in CHANNELS:
@@ -363,14 +386,14 @@ def run_gateway_command(action: str, target: Optional[str] = None) -> int:
             return 1
         from aryx.gateway.setup_wizard import add_channel
 
-        config = add_channel(load_gateway_config(), target)
+        config = add_channel(_load_cli_config(), target)
         save_gateway_config(config)
         return 0
     if action == "remove":
         if not target or target.lower() not in CHANNELS:
             print(f"Usage: aryx gateway remove <channel>  (channels: {', '.join(CHANNELS)})")
             return 1
-        config = load_gateway_config()
+        config = _load_cli_config()
         config[target.lower()]["enabled"] = False
         save_gateway_config(config)
         print(f"{target.lower()} disabled. Credentials stay in gateway.toml until you delete them.")
