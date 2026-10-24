@@ -1,0 +1,61 @@
+# ARYx gateway example configuration (Section 16.3).
+# Copy to ~/.aryx/gateway.toml and fill in your values, or run:
+#   aryx gateway setup
+# Tokens live here — keep this file private (chmod 600, applied on save).
+
+[telegram]
+enabled = false
+# Get it from @BotFather on Telegram (send /newbot). Never share it.
+bot_token = ""
+# Numeric Telegram user IDs allowed to control the bot. Find yours with /whoami.
+allowed_user_ids = []
+# ...or usernames (with or without @). Either list grants access.
+allowed_usernames = []
+# safe | auto | yolo. Messaging channels are FORCED to safe unless the
+# user is listed in allow_yolo_users below.
+default_approval_mode = "safe"
+allow_yolo_users = []
+
+[whatsapp]
+enabled = false
+# "twilio" (easier, paid) or "meta" (free tier, needs a Meta app + business).
+provider = "twilio"
+# E.164 numbers allowed to control the bot.
+allowed_numbers = []
+# Twilio fields (only for provider = "twilio"):
+# account_sid = ""
+# auth_token = ""
+# from_number = "+14155238886"
+# Meta fields (only for provider = "meta"):
+# access_token = ""
+# phone_number_id = ""
+# app_secret = ""
+# Optional public webhook URL (for doctor check 12). Leave empty when
+# you are not running a webhook-mode channel.
+# webhook_url = "https://<your-tunnel-domain>/webhook/whatsapp"
+
+[discord]
+enabled = false
+allowed_guilds = []
+allowed_roles = []
+# bot_token = ""
+
+[slack]
+enabled = false
+allowed_workspaces = []
+allowed_users = []
+# bot_token = "xoxb-..."
+# app_token = "xapp-..."
+
+[webui]
+enabled = false
+# NEVER 0.0.0.0 by default — 127.0.0.1 means this computer only.
+host = "127.0.0.1"
+port = 8765
+# Random token; the wizard generates one. It IS the password.
+auth_token = ""
+
+[rate_limits]
+# Per user, per channel.
+messages_per_minute = 20
+messages_per_day = 500
