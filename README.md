@@ -64,3 +64,8 @@ Security default is deny: only allow-listed users get replies, and messaging cha
 
 - `aryx-agent/` — the Python project: installer, source, tests, and docs.
 - The remaining files at this repo root are a separate experimental web console and are not needed to run the terminal agent.
+
+
+## License
+
+MIT — see [LICENSE](LICENSE). Free to use, modify, and share.
