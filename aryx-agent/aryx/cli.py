@@ -6,6 +6,7 @@ Zero-friction, self-healing, multi-provider terminal AI agent.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -74,6 +75,11 @@ else:
                 return fn
             return decorator
 
+        def callback(self, *args, **kwargs):
+            def decorator(fn):
+                return fn
+            return decorator
+
         def Option(self, default=None, *args, **kwargs):
             return default
 
@@ -114,7 +120,8 @@ def first_run_setup() -> bool:
             if not user_input:
                 print("\n  Available Providers:")
             else:
-                print(f"\n  Unrecognized key prefix for: {user_input[:8]}...")
+                # Never print any part of the pasted key.
+                print("\n  That key prefix wasn't recognized.")
                 print("  Please select your provider from the list:")
 
             for i, p in enumerate(SUPPORTED_PROVIDERS, 1):
@@ -480,14 +487,19 @@ def start_chat_session(yolo: bool = False, verbose: bool = False) -> None:
         )
 
 
-@app.command()
+@app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context = None,  # type: ignore[assignment]
     yolo: bool = typer.Option(False, "--yolo", help="Run without interactive confirmation for writes and bash"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
     banner: bool = typer.Option(False, "--banner", help="Print ARYx banner and exit"),
     version: bool = typer.Option(False, "--version", "-V", help="Print version and exit"),
 ) -> None:
-    """Start interactive ARYx AGENT session."""
+    """Start interactive ARYx AGENT session (default when no subcommand is given)."""
+    # When a subcommand (doctor, config, help, ...) was invoked, the
+    # callback still runs first under Typer — hand control to it.
+    if ctx is not None and getattr(ctx, "invoked_subcommand", None) is not None:
+        return
     if banner:
         print_banner()
         return
@@ -561,7 +573,7 @@ def cli_update() -> None:
         if res.returncode == 0:
             print("✓ ARYx AGENT updated successfully.")
         else:
-            print("Update failed. Run `pipx install --force git+https://github.com/aryx-agent/aryx-agent`")
+            print("Update failed. Run `pipx install --force \"git+https://github.com/fsix7115-arch/ARYX-agent#subdirectory=aryx-agent\"`")
     else:
         print("Run: pip install --upgrade --user aryx-agent")
 
