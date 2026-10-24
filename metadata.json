@@ -1,0 +1,6 @@
+{
+  "name": "ARYx AGENT - Zero-Friction Terminal AI Agent",
+  "description": "Production-ready, zero-friction, self-healing, multi-provider terminal AI agent CLI with 30-second setup, auto-detection, doctor diagnostics, and self-improving memory.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

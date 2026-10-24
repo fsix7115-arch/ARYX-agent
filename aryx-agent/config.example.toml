@@ -1,0 +1,59 @@
+# ==============================================================================
+# ARYx AGENT — Example Configuration (~/.aryx/config.toml)
+# Automatically populated on first run or modified via `aryx config`
+# ==============================================================================
+
+[general]
+# Approval mode: "safe" (confirm writes & bash), "auto" (confirm only dangerous), "yolo" (no confirm)
+approval_mode = "safe"
+# Timeout in seconds for running bash / python commands
+command_timeout = 30
+# Allow network access during tool execution (bash/python)
+allow_network = false
+# Verbose logging of LLM requests & tool steps
+verbose = false
+
+[provider]
+# Active provider: "gemini", "openai", "anthropic", "groq", "openrouter", "ollama", "mistral", "together"
+active = "gemini"
+
+[providers.gemini]
+api_key = "AIzaSy..."
+model = "gemini-2.5-flash"
+temperature = 0.4
+
+[providers.openai]
+api_key = "sk-..."
+model = "gpt-4.1-mini"
+base_url = "https://api.openai.com/v1"
+temperature = 0.4
+
+[providers.anthropic]
+api_key = "sk-ant-..."
+model = "claude-sonnet-4"
+temperature = 0.4
+
+[providers.groq]
+api_key = "gsk_..."
+model = "llama-3.3-70b"
+base_url = "https://api.groq.com/openai/v1"
+
+[providers.openrouter]
+api_key = "sk-or-..."
+model = "anthropic/claude-3.5-sonnet"
+base_url = "https://openrouter.ai/api/v1"
+
+[providers.ollama]
+model = "llama3.2"
+base_url = "http://localhost:11434"
+
+[memory]
+enabled = true
+sqlite_path = "~/.aryx/memory.db"
+auto_skill_generation = true
+skill_tool_threshold = 5
+
+[snapshots]
+enabled = true
+snapshot_dir = "~/.aryx/snapshots"
+keep_last = 50
