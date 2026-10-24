@@ -125,6 +125,38 @@ IN-CHAT COMMANDS:
 ================================================================================
 """
 
+HELP_GATEWAY_TEXT = """
+================================================================================
+                    ARYx AGENT GATEWAY (Section 16)
+================================================================================
+
+Control the SAME agent brain from Telegram, WhatsApp, Discord, Slack
+or a browser Web UI. Memory and skills are shared across channels:
+link a chat to your CLI identity once with `aryx gateway link`,
+then a task started on Telegram can continue on the terminal
+(and shows up in CLI /history).
+
+QUICK START:
+  aryx gateway setup        Interactive wizard (Telegram first)
+  aryx gateway start        Start all enabled channels
+  aryx gateway status       Show running channels
+  aryx gateway link         10-minute code for /link on your channel
+
+CHANNEL COMMANDS (on any channel):
+  /whoami  Show your channel user ID (for the allowlist)
+  /link CODE  Bind this chat to your CLI identity
+  /resume  Reopen your last session
+  /new     Fresh session
+  /stop    Cancel the current task
+
+SECURITY (default deny):
+  Only allow-listed users get replies; strangers get silence.
+  Messaging channels are forced into safe approval mode: writes
+  and bash ask first, with native Approve/Reject buttons.
+  Full guide: docs/GATEWAY.md
+================================================================================
+"""
+
 IN_CHAT_HELP_TEXT = """
 Available in-chat slash commands:
   /help              Show this help menu
@@ -139,6 +171,9 @@ Available in-chat slash commands:
   /dashboard         View token usage, database size, and session stats
   /clear             Clear conversation context (keeps persistent memory)
   /quit              Exit ARYx AGENT
+
+Gateway turns also appear here: messages from Telegram/Web UI are
+mirrored into memory, so /history covers every channel.
 """
 
 
@@ -153,6 +188,8 @@ def show_help(topic: str = "general") -> None:
         print(HELP_TOOLS_TEXT)
     elif topic in ("skills", "skill", "memory"):
         print(HELP_SKILLS_TEXT)
+    elif topic in ("gateway", "telegram", "whatsapp", "discord", "slack", "webui"):
+        print(HELP_GATEWAY_TEXT)
     else:
         render_table(
             "ARYx AGENT CLI Commands",
@@ -168,6 +205,7 @@ def show_help(topic: str = "general") -> None:
                 ["aryx help providers", "List all supported LLM providers", "aryx help providers"],
                 ["aryx help tools", "List built-in tools and safety modes", "aryx help tools"],
                 ["aryx help skills", "Explain self-improving skill system", "aryx help skills"],
+                ["aryx gateway", "Control ARYx from Telegram, WhatsApp, Discord, Slack, Web UI", "aryx gateway setup"],
                 ["aryx --version", "Print version", "aryx --version"],
             ],
         )
