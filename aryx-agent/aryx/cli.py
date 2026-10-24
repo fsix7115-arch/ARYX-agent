@@ -49,7 +49,19 @@ from aryx.memory import (
     save_message,
     search_history,
 )
-from aryx.providers import get_provider, get_provider_for_session
+from aryx.providers import get_provider
+
+try:
+        from aryx.providers import get_provider_for_session
+except ImportError:  # TEMPORARY v2 shim: providers/ upload still pending
+        def get_provider_for_session(config, text=""):
+                    """Fallback until the v2 providers module lands on main.
+
+                            Mirrors the v2 non-routing path: return the active provider.
+                                    Smart routing is unavailable until then.
+                                            """
+                    active = (config.get("provider", {}) or {}).get("active", "gemini")
+                    return get_provider(active, config)
 from aryx.tools import READ_ONLY_TOOLS, TOOL_DEFINITIONS, WRITE_TOOLS, dispatch_tool, revert_last_snapshots
 from aryx.ui import (
     print_banner,
